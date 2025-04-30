@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Hyundai Knowledge-Graph – Live Simulation</title>
+
+<!-- Local copy of vis-network (download once, works offline) -->
+<script src="vis-network.min.js"></script>
+
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;margin:0;height:100vh;
+       display:flex;flex-direction:column}
+  #controls{padding:8px;background:#f3f3f3;display:flex;gap:10px;
+            align-items:center}
+  #mynetwork{flex:1;border-top:1px solid #ccc;min-height:500px;width:100%}
+  button{padding:6px 12px;border:1px solid #444;border-radius:4px;
+         background:#fff;cursor:pointer}
+  button:hover{background:#eee}
+  #log{margin-left:auto;font-size:.8em;color:#666;white-space:nowrap}
+  #info-panel {
+    position: fixed;
+    right: 20px;
+    top: 60px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 15px;
+    max-width: 300px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    display: none;
+  }
+  #info-panel h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+  }
+  #info-panel .info-content {
+    font-size: 0.9em;
+  }
+  #info-panel .info-row {
+    margin: 5px 0;
+    display: flex;
+    justify-content: space-between;
+  }
+  #info-panel .info-label {
+    font-weight: bold;
+    color: #666;
+  }
+  #info-panel .info-value {
+    color: #333;
+  }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <button id="startBtn">Start Simulation</button>
+  <button id="stopBtn" disabled>Stop</button>
+  <button id="resetBtn">Reset Graph</button>
+  <span id="log">Ready…</span>
+</div>
+<div id="mynetwork"></div>
+<div id="info-panel">
+  <h3 id="info-title"></h3>
+  <div id="info-content" class="info-content"></div>
+</div>
+
+<script>
+/* -------------------------------------------------------
+   CONFIG
+------------------------------------------------------- */
+const PACE       = 1200;   // ms between events
+const MAX_NODES  = 300;    // stop when graph reaches this size
+
+/* -------------------------------------------------------
+   COLOR palette per group
+------------------------------------------------------- */
+const COLOR = {
+  manufacturer:'#ff8c00', brand:'#ffbd59', model:'#ffc77f',
+  dealer:'#ffd87f', vehicle:'#a3ffa3',
+  prospect:'#87cefa', customer:'#ff9aa2',
+  dtc:'#b39ddb', service:'#b2dfdb',
+  consent:'#fff176', web:'#c4eaff'
+};
+
+/* -------------------------------------------------------
+   Graph initialisation
+------------------------------------------------------- */
+const nodes = new vis.DataSet();
+const edges = new vis.DataSet();
+
+const network = new vis.Network(
+  document.getElementById('mynetwork'),
+  {nodes, edges},
+  {
+    physics:{
+      barnesHut:{
+        gravitationalConstant:-3500,
+        centralGravity: 0.3,
+        springLength: 200,
+        springConstant: 0.04
+      },
+      stabilization: {
+        enabled: true,
+        iterations: 1000
+      }
+    },
+    groups:Object.fromEntries(Object.entries(COLOR)
+           .map(([g,c])=>[g,{color:{background:c}}])),
+    edges:{smooth:{type:'dynamic'}},
+    nodes: {
+      shape: 'dot',
+      size: 16
+    }
+  }
+);
+
+// Add event listeners for debugging
+network.on('stabilizationProgress', function(params) {
+  console.log('Stabilization progress:', params.iterations, '/', params.total);
+});
+
+network.on('stabilizationIterationsDone', function() {
+  console.log('Stabilization complete');
+});
+
+network.on('click', function(params) {
+  if (params.nodes.length > 0) {
+    const nodeId = params.nodes[0];
+    const nodeData = nodes.get(nodeId);
+    formatInfoPanel(nodeData, 'Node');
+  } else if (params.edges.length > 0) {
+    const edgeId = params.edges[0];
+    const edgeData = edges.get(edgeId);
+    formatInfoPanel(edgeData, 'Edge');
+  } else {
+    document.getElementById('info-panel').style.display = 'none';
+  }
+});
+
+/* -------------------------------------------------------
+   Utility helpers
+------------------------------------------------------- */
+function tooltip(obj){
+  return Object.entries(obj).map(([k,v])=>`${k}: ${v}`).join('\n');
+}
+function addNode(id, group, attr={}){
+  if(!nodes.get(id)){
+    const nodeData = {
+      id,
+      label: id,
+      group,
+      title: tooltip(attr),
+      ...attr,
+      created: new Date().toISOString(),
+      type: group
+    };
+    nodes.add(nodeData);
+  }
+}
+function addEdge(a, b, label, attr={}){
+  const edgeData = {
+    from: a,
+    to: b,
+    label,
+    title: tooltip(attr),
+    ...attr,
+    created: new Date().toISOString(),
+    relationship: label
+  };
+  edges.add(edgeData);
+}
+function rand(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+/* -------------------------------------------------------
+   Seed base graph (2 dealers, 2 models)
+------------------------------------------------------- */
+addNode('Hyundai','manufacturer');
+addNode('Genesis','brand');
+addEdge('Hyundai','Genesis','OWNS');
+
+['Palisade','G70'].forEach(m=>{
+  addNode(m,'model');
+  addEdge(m==='G70'?'Genesis':'Hyundai', m, 'MODEL');
+});
+
+function addDealer(name){
+  addNode(name,'dealer');
+  // Link dealer to both Hyundai and Genesis
+  addEdge('Hyundai', name, 'AUTHORIZED_DEALER');
+  addEdge('Genesis', name, 'AUTHORIZED_DEALER');
+}
+
+['Dealer 001','Dealer 002'].forEach(addDealer);
+
+/* -------------------------------------------------------
+   Entity counters
+------------------------------------------------------- */
+let prospect=1, vehicle=1, dtc=1, service=1, consent=1, web=1;
+
+/* -------------------------------------------------------
+   Reset functionality
+------------------------------------------------------- */
+function resetGraph() {
+  // Stop the simulation if it's running
+  stopSim();
+  
+  // Clear all nodes and edges
+  nodes.clear();
+  edges.clear();
+  
+  // Reset counters
+  prospect = 1;
+  vehicle = 1;
+  dtc = 1;
+  service = 1;
+  consent = 1;
+  web = 1;
+  
+  // Re-add initial seed data
+  addNode('Hyundai','manufacturer');
+  addNode('Genesis','brand');
+  addEdge('Hyundai','Genesis','OWNS');
+
+  ['Palisade','G70'].forEach(m=>{
+    addNode(m,'model');
+    addEdge(m==='G70'?'Genesis':'Hyundai', m, 'MODEL');
+  });
+  ['Dealer 001','Dealer 002'].forEach(addDealer);
+  
+  // Clear info panel
+  document.getElementById('info-panel').style.display = 'none';
+  
+  // Update log
+  log(`Nodes: ${nodes.length}   Edges: ${edges.length}`);
+  
+  // Center and zoom to show all nodes
+  network.fit({animation:{duration:300,easingFunction:'easeInOutQuad'}});
+}
+
+/* -------------------------------------------------------
+   Generators
+------------------------------------------------------- */
+function addProspect(){
+  const p='Prospect '+prospect++;
+  addNode(p,'prospect');
+  addEdge(p, randDealer(), 'INTEREST');
+}
+function addVehicle(){
+  const v='Vehicle '+vehicle++;
+  const model = rand(['Palisade','G70']);
+  addNode(v,'vehicle',{model});
+  addEdge(model, v, 'INSTANCE');
+  addEdge(randDealer(), v, 'STOCK');
+}
+function purchase(){
+  const pros = nodes.get({filter:n=>n.group==='prospect'});
+  const vehs = nodes.get({filter:n=>n.group==='vehicle'});
+  if(!pros.length || !vehs.length) return;
+  const p = rand(pros), v = rand(vehs);
+  nodes.update({id:p.id, group:'customer',
+                color:{background:COLOR.customer}});
+  addEdge(p.id, v.id, 'BUYS');
+}
+function telematics(){
+  const vehs = nodes.get({filter:n=>n.group==='vehicle'});
+  if(!vehs.length) return;
+  const v  = rand(vehs);
+  const d  = 'DTC '+dtc++;
+  addNode(d,'dtc',{code:'P0'+Math.floor(Math.random()*900+100)});
+  addEdge(v.id, d, 'ALERT');
+}
+function serviceVisit(){
+  const vehs = nodes.get({filter:n=>n.group==='vehicle'});
+  if(!vehs.length) return;
+  const v  = rand(vehs);
+  const s  = 'Svc '+service++;
+  addNode(s,'service',{date:new Date().toISOString().slice(0,10)});
+  addEdge(v.id, s, 'VISIT');
+}
+function consentChange(){
+  const cust = nodes.get({filter:n=>n.group==='customer'});
+  if(!cust.length) return;
+  const c  = rand(cust);
+  const k  = 'Consent '+consent++;
+  addNode(k,'consent',{channel:'SMS',status:'OPT_IN'});
+  addEdge(c.id, k, 'OPT_IN');
+}
+function webSession(){
+  const people = nodes.get({filter:n=>['prospect','customer'].includes(n.group)});
+  if(!people.length) return;
+  const p  = rand(people);
+  const w  = 'Web '+web++;
+  addNode(w,'web',{ts:new Date().toISOString()});
+  addEdge(p.id, w, 'BROWSE');
+}
+function randDealer(){
+  return rand(nodes.get({filter:n=>n.group==='dealer'})).id;
+}
+
+/* -------------------------------------------------------
+   Simulation loop
+------------------------------------------------------- */
+let timer=null;
+function simStep(){
+  if(nodes.length >= MAX_NODES){
+     log('Reached '+MAX_NODES+' nodes.'); stopSim(); return;
+  }
+  const r = Math.random();
+  if(r < 0.2) addProspect();
+  else if(r < 0.35) addVehicle();
+  else if(r < 0.5) purchase();
+  else if(r < 0.65) telematics();
+  else if(r < 0.8) serviceVisit();
+  else if(r < 0.9) webSession();
+  else consentChange();
+
+  log(`Nodes: ${nodes.length}   Edges: ${edges.length}`);
+
+  // Center and zoom so new nodes are visible
+  network.fit({animation:{duration:300,easingFunction:'easeInOutQuad'}});
+}
+function startSim(){
+  if(timer) return;
+  timer = setInterval(simStep, PACE);
+  simStep(); // immediate first event
+  toggle(true);
+}
+function stopSim(){
+  clearInterval(timer);
+  timer=null;
+  toggle(false);
+}
+function toggle(running){
+  document.getElementById('startBtn').disabled = running;
+  document.getElementById('stopBtn').disabled  = !running;
+}
+function log(msg){document.getElementById('log').textContent=msg;}
+
+function formatInfoPanel(data, type) {
+  const panel = document.getElementById('info-panel');
+  const title = document.getElementById('info-title');
+  const content = document.getElementById('info-content');
+  
+  if (!data) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  title.textContent = `${type}: ${data.label || data.id}`;
+  content.innerHTML = '';
+
+  // Add all properties to the info panel
+  Object.entries(data).forEach(([key, value]) => {
+    if (key !== 'id' && key !== 'label') {
+      const row = document.createElement('div');
+      row.className = 'info-row';
+      
+      const label = document.createElement('span');
+      label.className = 'info-label';
+      label.textContent = key + ':';
+      
+      const val = document.createElement('span');
+      val.className = 'info-value';
+      val.textContent = typeof value === 'object' ? JSON.stringify(value) : value;
+      
+      row.appendChild(label);
+      row.appendChild(val);
+      content.appendChild(row);
+    }
+  });
+
+  panel.style.display = 'block';
+}
+
+/* -------------------------------------------------------
+   Wire buttons
+------------------------------------------------------- */
+document.getElementById('startBtn').onclick = startSim;
+document.getElementById('stopBtn').onclick  = stopSim;
+document.getElementById('resetBtn').onclick = resetGraph;
+</script>
+</body>
+</html>
+
