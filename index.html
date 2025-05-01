@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Auto Knowledge Graph – Live Simulation</title>
 
 <!-- Local copy of vis-network (download once, works offline) -->
@@ -15,63 +16,77 @@
     color: #4a3c2a;
     padding: 15px;
     text-align: center;
-    font-size: 24px;
+    font-size: clamp(20px, 5vw, 24px);
     font-weight: bold;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     border-bottom: 1px solid #d4c4a3;
   }
   #controls{
-    padding: 8px;
+    padding: 12px;
     background: #f3f3f3;
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 12px;
     align-items: center;
     border-bottom: 1px solid #ccc;
   }
   .control-group {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
   .control-group label {
-    font-size: 0.9em;
+    font-size: clamp(14px, 4vw, 16px);
     color: #666;
     white-space: nowrap;
   }
   .control-group select {
-    padding: 4px 8px;
+    padding: 8px 12px;
     border: 1px solid #ccc;
     border-radius: 4px;
     background: white;
+    font-size: clamp(14px, 4vw, 16px);
+    min-width: 120px;
   }
   #mynetwork{flex:1;min-height:500px;width:100%}
-  button{padding:6px 12px;border:1px solid #444;border-radius:4px;
-         background:#fff;cursor:pointer}
+  button{padding:8px 16px;border:1px solid #444;border-radius:4px;
+         background:#fff;cursor:pointer;font-size:clamp(14px, 4vw, 16px);min-width:100px}
   button:hover{background:#eee}
-  #log{margin-left:auto;font-size:.8em;color:#666;white-space:nowrap}
+  button:active {
+    background: #ddd;
+    transform: translateY(1px);
+  }
+  #log{margin-left:auto;font-size:clamp(12px, 3.5vw, 14px);color:#666;white-space:nowrap}
   #info-panel {
     position: fixed;
-    right: 20px;
-    top: 100px;
+    right: 10px;
+    top: 80px;
     background: white;
     border: 1px solid #ccc;
     border-radius: 4px;
     padding: 15px;
-    max-width: 300px;
+    max-width: min(300px, 90vw);
+    width: 90%;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     display: none;
+    z-index: 1000;
+    font-size: clamp(14px, 4vw, 16px);
   }
   #info-panel h3 {
     margin: 0 0 10px 0;
     color: #333;
+    font-size: clamp(16px, 4.5vw, 18px);
   }
   #info-panel .info-content {
-    font-size: 0.9em;
+    font-size: clamp(13px, 3.8vw, 15px);
   }
   #info-panel .info-row {
-    margin: 5px 0;
+    margin: 8px 0;
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
+    gap: 8px;
   }
   #info-panel .info-label {
     font-weight: bold;
@@ -107,6 +122,43 @@
     padding: 4px;
     border: 1px solid #ccc;
     border-radius: 4px;
+  }
+
+  @media (max-width: 768px) {
+    #controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .control-group {
+      justify-content: center;
+    }
+    #log {
+      margin: 0;
+      text-align: center;
+    }
+    button {
+      flex: 1;
+      min-width: unset;
+    }
+    .control-group select {
+      flex: 1;
+    }
+  }
+
+  @media (max-width: 480px) {
+    #header {
+      padding: 10px;
+    }
+    #controls {
+      padding: 8px;
+    }
+    .control-group {
+      flex-direction: column;
+      width: 100%;
+    }
+    .control-group label {
+      text-align: center;
+    }
   }
 </style>
 </head>
