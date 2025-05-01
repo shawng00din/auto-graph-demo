@@ -10,9 +10,41 @@
 <style>
   body{font-family:Arial,Helvetica,sans-serif;margin:0;height:100vh;
        display:flex;flex-direction:column}
-  #controls{padding:8px;background:#f3f3f3;display:flex;gap:10px;
-            align-items:center}
-  #mynetwork{flex:1;border-top:1px solid #ccc;min-height:500px;width:100%}
+  #header {
+    background: #e6d5ac;
+    color: #4a3c2a;
+    padding: 15px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    border-bottom: 1px solid #d4c4a3;
+  }
+  #controls{
+    padding: 8px;
+    background: #f3f3f3;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    border-bottom: 1px solid #ccc;
+  }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .control-group label {
+    font-size: 0.9em;
+    color: #666;
+    white-space: nowrap;
+  }
+  .control-group select {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+  }
+  #mynetwork{flex:1;min-height:500px;width:100%}
   button{padding:6px 12px;border:1px solid #444;border-radius:4px;
          background:#fff;cursor:pointer}
   button:hover{background:#eee}
@@ -20,7 +52,7 @@
   #info-panel {
     position: fixed;
     right: 20px;
-    top: 60px;
+    top: 100px;
     background: white;
     border: 1px solid #ccc;
     border-radius: 4px;
@@ -48,16 +80,58 @@
   #info-panel .info-value {
     color: #333;
   }
+  #cluster-controls {
+    position: fixed;
+    left: 20px;
+    top: 100px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 1000;
+  }
+  #cluster-controls h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+  }
+  .cluster-option {
+    margin: 5px 0;
+  }
+  .cluster-option label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  .cluster-option select {
+    width: 100%;
+    padding: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
 </style>
 </head>
 <body>
 
+<div id="header">🚗 Auto Knowledge Graph Simulator</div>
+
 <div id="controls">
-  <button id="startBtn">Start Simulation</button>
-  <button id="stopBtn" disabled>Stop</button>
-  <button id="resetBtn">Reset Graph</button>
+  <div class="control-group">
+    <button id="startBtn">Start Simulation</button>
+    <button id="stopBtn" disabled>Stop</button>
+    <button id="resetBtn">Reset Graph</button>
+  </div>
+  <div class="control-group">
+    <label for="clusterBy">Group By:</label>
+    <select id="clusterBy">
+      <option value="none">No Grouping</option>
+      <option value="type">Node Type</option>
+      <option value="region">Region</option>
+      <option value="income">Income Level</option>
+    </select>
+  </div>
   <span id="log">Ready…</span>
 </div>
+
 <div id="mynetwork"></div>
 <div id="info-panel">
   <h3 id="info-title"></h3>
@@ -75,11 +149,35 @@ const MAX_NODES  = 300;    // stop when graph reaches this size
    COLOR palette per group
 ------------------------------------------------------- */
 const COLOR = {
+  // Original type colors
   manufacturer:'#ff8c00', brand:'#ffbd59', model:'#ffc77f',
   dealer:'#ffd87f', vehicle:'#a3ffa3',
   prospect:'#87cefa', customer:'#ff9aa2',
   dtc:'#b39ddb', service:'#b2dfdb',
-  consent:'#fff176', web:'#c4eaff'
+  consent:'#fff176', web:'#c4eaff',
+  
+  // Region colors
+  'North': '#4CAF50',
+  'South': '#2196F3',
+  'East': '#FFC107',
+  'West': '#9C27B0',
+  'Central': '#F44336',
+  'unknown': '#9E9E9E',
+  
+  // Income level colors
+  'high': '#4CAF50',
+  'medium': '#FFC107',
+  'low': '#F44336'
+};
+
+/* -------------------------------------------------------
+   Clustering data
+------------------------------------------------------- */
+const REGIONS = ['North', 'South', 'East', 'West', 'Central'];
+const INCOME_LEVELS = ['low', 'medium', 'high'];
+const DEALER_REGIONS = {
+  'Dealer 001': 'North',
+  'Dealer 002': 'South'
 };
 
 /* -------------------------------------------------------
@@ -94,23 +192,51 @@ const network = new vis.Network(
   {
     physics:{
       barnesHut:{
-        gravitationalConstant:-3500,
+        gravitationalConstant:-2000,
         centralGravity: 0.3,
         springLength: 200,
-        springConstant: 0.04
+        springConstant: 0.04,
+        damping: 0.09
       },
       stabilization: {
         enabled: true,
         iterations: 1000
       }
     },
-    groups:Object.fromEntries(Object.entries(COLOR)
-           .map(([g,c])=>[g,{color:{background:c}}])),
-    edges:{smooth:{type:'dynamic'}},
     nodes: {
       shape: 'dot',
-      size: 16
-    }
+      size: 16,
+      font: { 
+        size: 12,
+        color: '#000000'
+      },
+      color: {
+        background: '#97C2FC',
+        border: '#2B7CE9',
+        highlight: {
+          background: '#D2E5FF',
+          border: '#2B7CE9'
+        }
+      }
+    },
+    edges: {
+      smooth: {type: 'dynamic'},
+      width: 1,
+      color: {
+        color: '#848484',
+        highlight: '#848484'
+      }
+    },
+    groups: Object.fromEntries(Object.entries(COLOR)
+      .map(([g,c])=>[g,{
+        color: {background: c},
+        shape: 'dot',
+        size: 16,
+        font: { 
+          size: 12,
+          color: '#000000'
+        }
+      }]))
   }
 );
 
@@ -124,9 +250,11 @@ network.on('stabilizationIterationsDone', function() {
 });
 
 network.on('click', function(params) {
+  console.log('Network click:', params);
   if (params.nodes.length > 0) {
     const nodeId = params.nodes[0];
     const nodeData = nodes.get(nodeId);
+    console.log('Clicked node data:', nodeData);
     formatInfoPanel(nodeData, 'Node');
   } else if (params.edges.length > 0) {
     const edgeId = params.edges[0];
@@ -149,11 +277,14 @@ function addNode(id, group, attr={}){
       id,
       label: id,
       group,
-      title: tooltip(attr),
-      ...attr,
+      type: group,
       created: new Date().toISOString(),
-      type: group
+      isCustomer: false,
+      isProspect: group === 'prospect',
+      ...attr
     };
+    // Remove any color information from the node data
+    delete nodeData.color;
     nodes.add(nodeData);
   }
 }
@@ -184,7 +315,7 @@ addEdge('Hyundai','Genesis','OWNS');
 });
 
 function addDealer(name){
-  addNode(name,'dealer');
+  addNode(name,'dealer', {region: DEALER_REGIONS[name] || rand(REGIONS)});
   // Link dealer to both Hyundai and Genesis
   addEdge('Hyundai', name, 'AUTHORIZED_DEALER');
   addEdge('Genesis', name, 'AUTHORIZED_DEALER');
@@ -242,23 +373,36 @@ function resetGraph() {
 ------------------------------------------------------- */
 function addProspect(){
   const p='Prospect '+prospect++;
-  addNode(p,'prospect');
+  const region = rand(REGIONS);
+  const incomeLevel = rand(INCOME_LEVELS);
+  addNode(p,'prospect', {region, incomeLevel});
   addEdge(p, randDealer(), 'INTEREST');
 }
 function addVehicle(){
   const v='Vehicle '+vehicle++;
   const model = rand(['Palisade','G70']);
-  addNode(v,'vehicle',{model});
+  const region = rand(REGIONS);
+  addNode(v,'vehicle',{model, region});
   addEdge(model, v, 'INSTANCE');
   addEdge(randDealer(), v, 'STOCK');
 }
 function purchase(){
-  const pros = nodes.get({filter:n=>n.group==='prospect'});
+  const pros = nodes.get({filter:n=>n.isProspect});
   const vehs = nodes.get({filter:n=>n.group==='vehicle'});
   if(!pros.length || !vehs.length) return;
   const p = rand(pros), v = rand(vehs);
-  nodes.update({id:p.id, group:'customer',
-                color:{background:COLOR.customer}});
+  
+  // Update node to be both customer and prospect
+  nodes.update({
+    id: p.id, 
+    group: 'customer',
+    color: {background: COLOR.customer},
+    region: p.region,
+    incomeLevel: p.incomeLevel,
+    isCustomer: true,
+    isProspect: true, // Keep prospect status
+    purchaseDate: new Date().toISOString()
+  });
   addEdge(p.id, v.id, 'BUYS');
 }
 function telematics(){
@@ -349,25 +493,74 @@ function formatInfoPanel(data, type) {
   title.textContent = `${type}: ${data.label || data.id}`;
   content.innerHTML = '';
 
-  // Add all properties to the info panel
+  // Create a clean version of the data without duplicates
+  const cleanData = {};
   Object.entries(data).forEach(([key, value]) => {
-    if (key !== 'id' && key !== 'label') {
-      const row = document.createElement('div');
-      row.className = 'info-row';
-      
-      const label = document.createElement('span');
-      label.className = 'info-label';
-      label.textContent = key + ':';
-      
-      const val = document.createElement('span');
-      val.className = 'info-value';
-      val.textContent = typeof value === 'object' ? JSON.stringify(value) : value;
-      
-      row.appendChild(label);
-      row.appendChild(val);
-      content.appendChild(row);
+    if (key !== 'id' && key !== 'label' && key !== 'color') {
+      // Only add if we haven't seen this value before
+      if (!Object.values(cleanData).includes(value)) {
+        cleanData[key] = value;
+      }
     }
   });
+
+  // Add all properties to the info panel
+  Object.entries(cleanData).forEach(([key, value]) => {
+    const row = document.createElement('div');
+    row.className = 'info-row';
+    
+    const label = document.createElement('span');
+    label.className = 'info-label';
+    label.textContent = key + ':';
+    
+    const val = document.createElement('span');
+    val.className = 'info-value';
+    
+    // Special formatting for status flags
+    if (key === 'isCustomer' || key === 'isProspect') {
+      val.textContent = value ? 'Yes' : 'No';
+      val.style.color = value ? '#4CAF50' : '#F44336';
+      val.style.fontWeight = 'bold';
+    } else {
+      val.textContent = typeof value === 'object' ? JSON.stringify(value) : value;
+    }
+    
+    row.appendChild(label);
+    row.appendChild(val);
+    content.appendChild(row);
+  });
+
+  // Add a status summary if it's a person node
+  if (data.type === 'customer' || data.type === 'prospect') {
+    const statusRow = document.createElement('div');
+    statusRow.className = 'info-row';
+    statusRow.style.marginTop = '10px';
+    statusRow.style.paddingTop = '10px';
+    statusRow.style.borderTop = '1px solid #eee';
+    
+    const statusLabel = document.createElement('span');
+    statusLabel.className = 'info-label';
+    statusLabel.textContent = 'Status:';
+    
+    const statusVal = document.createElement('span');
+    statusVal.className = 'info-value';
+    
+    if (data.isCustomer && data.isProspect) {
+      statusVal.textContent = 'Active Customer & In-Market Prospect';
+      statusVal.style.color = '#2196F3';
+    } else if (data.isCustomer) {
+      statusVal.textContent = 'Active Customer';
+      statusVal.style.color = '#4CAF50';
+    } else if (data.isProspect) {
+      statusVal.textContent = 'In-Market Prospect';
+      statusVal.style.color = '#FFC107';
+    }
+    statusVal.style.fontWeight = 'bold';
+    
+    statusRow.appendChild(statusLabel);
+    statusRow.appendChild(statusVal);
+    content.appendChild(statusRow);
+  }
 
   panel.style.display = 'block';
 }
@@ -378,6 +571,191 @@ function formatInfoPanel(data, type) {
 document.getElementById('startBtn').onclick = startSim;
 document.getElementById('stopBtn').onclick  = stopSim;
 document.getElementById('resetBtn').onclick = resetGraph;
+
+/* -------------------------------------------------------
+   Grouping functionality
+------------------------------------------------------- */
+function updateGrouping() {
+  console.log('updateGrouping called');
+  const groupBy = document.getElementById('clusterBy').value;
+  
+  console.log('Grouping by:', groupBy);
+  
+  // Reset all nodes to their original state
+  nodes.get().forEach(node => {
+    nodes.update({
+      id: node.id,
+      group: node.type
+    });
+  });
+
+  if (groupBy === 'none') {
+    return;
+  }
+
+  // Group nodes based on selection
+  nodes.get().forEach(node => {
+    let group;
+    let color;
+    let groupLabel;
+    
+    switch(groupBy) {
+      case 'type':
+        group = node.type;
+        color = COLOR[group];
+        groupLabel = group;
+        break;
+      case 'region':
+        group = node.region || 'unknown';
+        color = COLOR[group];
+        groupLabel = `Region: ${group}`;
+        break;
+      case 'income':
+        group = node.incomeLevel || 'medium';
+        color = COLOR[group];
+        groupLabel = `Income: ${group}`;
+        break;
+    }
+    
+    nodes.update({
+      id: node.id,
+      group: group,
+      color: { 
+        background: color,
+        border: '#2B7CE9',
+        highlight: {
+          background: color,
+          border: '#2B7CE9'
+        }
+      },
+      label: `${node.id}\n${groupLabel}`
+    });
+  });
+
+  // Update physics based on grouping
+  updatePhysicsForGrouping(groupBy);
+}
+
+function updatePhysicsForGrouping(groupBy) {
+  // Base physics settings
+  const baseSettings = {
+    barnesHut: {
+      gravitationalConstant: -2000,
+      centralGravity: 0.3,
+      springLength: 200,
+      springConstant: 0.04,
+      damping: 0.09
+    },
+    stabilization: {
+      enabled: true,
+      iterations: 1000
+    }
+  };
+
+  // Adjust physics based on grouping type
+  switch(groupBy) {
+    case 'type':
+      // Keep original type grouping
+      baseSettings.barnesHut.centralGravity = 0.3;
+      baseSettings.barnesHut.gravitationalConstant = -2000;
+      break;
+    case 'region':
+      // Stronger attraction for same region
+      baseSettings.barnesHut.centralGravity = 0.5;
+      baseSettings.barnesHut.gravitationalConstant = -4000;
+      baseSettings.barnesHut.springLength = 150;
+      break;
+    case 'income':
+      // Stronger attraction for same income level
+      baseSettings.barnesHut.centralGravity = 0.5;
+      baseSettings.barnesHut.gravitationalConstant = -4000;
+      baseSettings.barnesHut.springLength = 150;
+      break;
+  }
+
+  // Apply the new physics settings
+  network.setOptions({ physics: baseSettings });
+
+  // Force a new stabilization
+  network.stabilize(100);
+}
+
+// Add event listeners for grouping controls
+document.getElementById('clusterBy').addEventListener('change', function(e) {
+  console.log('Group by changed:', e.target.value);
+  const groupBy = e.target.value;
+  
+  if (groupBy === 'none') {
+    // Reset to original groups
+    nodes.get().forEach(node => {
+      nodes.update({
+        id: node.id,
+        group: node.type,
+        color: { background: COLOR[node.type] },
+        label: node.id // Reset to original label
+      });
+    });
+    // Reset physics to default
+    network.setOptions({
+      physics: {
+        barnesHut: {
+          gravitationalConstant: -2000,
+          centralGravity: 0.3,
+          springLength: 200,
+          springConstant: 0.04,
+          damping: 0.09
+        },
+        stabilization: {
+          enabled: true,
+          iterations: 1000
+        }
+      }
+    });
+    return;
+  }
+
+  // Group nodes based on selection
+  nodes.get().forEach(node => {
+    let group;
+    let color;
+    let groupLabel;
+    
+    switch(groupBy) {
+      case 'type':
+        group = node.type;
+        color = COLOR[group];
+        groupLabel = group;
+        break;
+      case 'region':
+        group = node.region || 'unknown';
+        color = COLOR[group];
+        groupLabel = `Region: ${group}`;
+        break;
+      case 'income':
+        group = node.incomeLevel || 'medium';
+        color = COLOR[group];
+        groupLabel = `Income: ${group}`;
+        break;
+    }
+    
+    nodes.update({
+      id: node.id,
+      group: group,
+      color: { 
+        background: color,
+        border: '#2B7CE9',
+        highlight: {
+          background: color,
+          border: '#2B7CE9'
+        }
+      },
+      label: `${node.id}\n${groupLabel}`
+    });
+  });
+
+  // Update physics based on grouping
+  updatePhysicsForGrouping(groupBy);
+});
 </script>
 </body>
 </html>
