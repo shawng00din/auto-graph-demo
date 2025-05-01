@@ -12,4 +12,15 @@ hyundai_interactive_graph.html
 
 # OS files
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Jest files
+coverage/
+__tests__/
+*.test.js
+*.spec.js
+jest.config.js
+jest.setup.js
+node_modules/
+package-lock.json
+.babelrc 

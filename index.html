@@ -219,6 +219,10 @@
 </div>
 
 <div id="mynetwork"></div>
+<div id="legend" style="margin:10px 0;">
+  <span style="display:inline-block;width:16px;height:16px;background:#ff1493;border-radius:50%;margin-right:5px;"></span>
+  Persona
+</div>
 <div id="info-panel">
   <h3 id="info-title"></h3>
   <div id="info-content" class="info-content"></div>
@@ -241,6 +245,7 @@ const COLOR = {
   prospect:'#87cefa', customer:'#ff9aa2',
   dtc:'#b39ddb', service:'#b2dfdb',
   consent:'#fff176', web:'#c4eaff',
+  persona:'#ff1493', // hot pink for personas
   
   // Region colors
   'North': '#4CAF50',
@@ -548,6 +553,9 @@ function simStep(){
 
   // Center and zoom so new nodes are visible
   network.fit({animation:{duration:300,easingFunction:'easeInOutQuad'}});
+
+  // Update personas after each simulation step
+  updatePersonas();
 }
 function startSim(){
   if(timer) return;
@@ -842,6 +850,83 @@ document.getElementById('clusterBy').addEventListener('change', function(e) {
   // Update physics based on grouping
   updatePhysicsForGrouping(groupBy);
 });
+
+function updatePersonas() {
+  // Remove all persona edges and nodes
+  const personaNodeIds = nodes.get({filter: n => n.group === 'persona'}).map(n => n.id);
+  personaNodeIds.forEach(pid => {
+    // Remove edges from this persona node
+    edges.get({filter: e => e.from === pid && e.label === 'persona_match'}).forEach(e => edges.remove(e.id));
+    // Remove the persona node itself
+    nodes.remove(pid);
+  });
+
+  // Persona definitions
+  const personas = [
+    {
+      id: 'Luxury SUV Enthusiast',
+      criteria: node =>
+        (node.group === 'customer' || node.group === 'prospect') &&
+        (node.model === 'Palisade' || node.brand === 'Genesis' || node.body_style === 'SUV'),
+      reason: 'interested in or owns a luxury SUV',
+    },
+    {
+      id: 'Frequent Service Visitor',
+      criteria: node => {
+        if (!(node.group === 'customer' || node.group === 'prospect')) return false;
+        const serviceVisits = edges.get({filter:e=>e.from===node.id && e.label==='VISIT'}).length;
+        const dtcEvents = edges.get({filter:e=>e.from===node.id && e.label==='ALERT'}).length;
+        return (serviceVisits + dtcEvents) >= 2;
+      },
+      reason: 'multiple service visits or DTC events',
+    },
+    {
+      id: 'Digital Engager',
+      criteria: node => {
+        if (!(node.group === 'customer' || node.group === 'prospect')) return false;
+        const webSessions = edges.get({filter:e=>e.from===node.id && e.label==='BROWSE'}).length;
+        return webSessions >= 2;
+      },
+      reason: 'multiple web sessions',
+    },
+    {
+      id: 'Budget-Conscious Shopper',
+      criteria: node =>
+        (node.group === 'customer' || node.group === 'prospect') &&
+        (node.incomeLevel === 'low' || (edges.get({filter:e=>e.from===node.id && e.label==='BROWSE'}).length > 3 && !node.isCustomer)),
+      reason: 'low income or frequent browser without purchase',
+    },
+    {
+      id: 'New Customer',
+      criteria: node => {
+        if (node.group !== 'customer' || !node.purchaseDate) return false;
+        const purchaseDate = new Date(node.purchaseDate);
+        const now = new Date();
+        const daysSincePurchase = (now - purchaseDate) / (1000 * 60 * 60 * 24);
+        return daysSincePurchase <= 30;
+      },
+      reason: 'recently became a customer',
+    },
+  ];
+
+  // For each prospect/customer with 3+ edges, check personas
+  nodes.get({filter: n => n.group === 'customer' || n.group === 'prospect'}).forEach(node => {
+    const edgeCount = edges.get({filter: e => e.from === node.id || e.to === node.id}).length;
+    if (edgeCount < 3) return;
+    personas.forEach(persona => {
+      if (persona.criteria(node)) {
+        // Add persona node if not present
+        if (!nodes.get(persona.id)) {
+          nodes.add({ id: persona.id, label: persona.id, group: 'persona', type: 'persona', color: { background: COLOR.persona } });
+        }
+        // Add edge if not present
+        if (!edges.get({filter: e => e.from === persona.id && e.to === node.id && e.label === 'persona_match'}).length) {
+          edges.add({ from: persona.id, to: node.id, label: 'persona_match', title: persona.reason, reason: persona.reason, created: new Date().toISOString(), relationship: 'persona_match' });
+        }
+      }
+    });
+  });
+}
 </script>
 </body>
 </html>
