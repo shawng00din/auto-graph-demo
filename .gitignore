@@ -1,0 +1,15 @@
+# Python files
+*.py
+__pycache__/
+*.pyc
+
+# HTML files
+hyundai_interactive_graph.html
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db 
