@@ -2,6 +2,10 @@
 
 An interactive visualization of an automotive knowledge graph, demonstrating relationships between manufacturers, dealers, vehicles, and customers.
 
+## Live Demo
+
+Check out the live demo: [Auto Knowledge Graph Simulator](https://autographsim.netlify.app/)
+
 ## Features
 
 - Real-time graph simulation
@@ -29,6 +33,7 @@ git clone https://github.com/shawng00din/auto-graph-demo.git
 - `vis-network.min.js` - Network visualization library
 - `build-graph.py` - Python script for generating the initial graph structure
 - `hyundai_interactive_graph.html` - Alternative visualization interface
+- `netlify.toml` - Netlify deployment configuration
 
 ## Usage
 
@@ -43,6 +48,12 @@ The project uses:
 - HTML/CSS/JavaScript for the frontend
 - Python for graph generation
 - vis-network.js for visualization
+
+## Deployment
+
+The project is configured for deployment on Netlify. The `netlify.toml` file includes:
+- Build settings for static site deployment
+- Redirect rules for proper routing
 
 ## License
 
