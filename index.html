@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Auto Knowledge Graph – Live Simulation</title>
 
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
 <!-- Local copy of vis-network (download once, works offline) -->
 <script src="vis-network.min.js"></script>
 
@@ -50,12 +53,36 @@
     min-width: 120px;
   }
   #mynetwork{flex:1;min-height:500px;width:100%}
-  button{padding:8px 16px;border:1px solid #444;border-radius:4px;
-         background:#fff;cursor:pointer;font-size:clamp(14px, 4vw, 16px);min-width:100px}
-  button:hover{background:#eee}
+  .control-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  button {
+    padding: 12px;
+    border: 1px solid #444;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    font-size: clamp(16px, 4vw, 18px);
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+  button:hover {
+    background: #eee;
+    transform: scale(1.05);
+  }
   button:active {
     background: #ddd;
-    transform: translateY(1px);
+    transform: scale(0.95);
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
   }
   #log{margin-left:auto;font-size:clamp(12px, 3.5vw, 14px);color:#666;white-space:nowrap}
   #info-panel {
@@ -127,21 +154,28 @@
   @media (max-width: 768px) {
     #controls {
       flex-direction: column;
-      align-items: stretch;
+      align-items: center;
+      padding: 8px;
+    }
+    .control-buttons {
+      order: -1;
+      margin-bottom: 8px;
     }
     .control-group {
+      width: 100%;
       justify-content: center;
     }
-    #log {
-      margin: 0;
-      text-align: center;
-    }
-    button {
-      flex: 1;
-      min-width: unset;
+    .control-group label {
+      display: none;
     }
     .control-group select {
-      flex: 1;
+      width: 100%;
+      max-width: 200px;
+    }
+    #log {
+      margin: 8px 0 0 0;
+      text-align: center;
+      font-size: 12px;
     }
   }
 
@@ -167,10 +201,10 @@
 <div id="header">🚗 Auto Knowledge Graph Simulator</div>
 
 <div id="controls">
-  <div class="control-group">
-    <button id="startBtn">Start Simulation</button>
-    <button id="stopBtn" disabled>Stop</button>
-    <button id="resetBtn">Reset Graph</button>
+  <div class="control-buttons">
+    <button id="startBtn" title="Start Simulation"><i class="fas fa-play"></i></button>
+    <button id="stopBtn" disabled title="Stop"><i class="fas fa-stop"></i></button>
+    <button id="resetBtn" title="Reset Graph"><i class="fas fa-redo"></i></button>
   </div>
   <div class="control-group">
     <label for="clusterBy">Group By:</label>
